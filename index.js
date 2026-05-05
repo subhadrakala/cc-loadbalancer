@@ -12,10 +12,16 @@ async function main() {
 
     let servers = new Servers();
 
-    for (const element of servers.getServers()) {
-        let status = await checkServerIsAlive(element);
-        servers.updateServerLiveStatus(element, status);
-    }
+    const performHealthCheck = async () => {
+        for (const element of servers.getServers()) {
+            let status = await checkServerIsAlive(element);
+            servers.updateServerLiveStatus(element, status);
+        }
+    };
+
+    await performHealthCheck();
+
+    setInterval(performHealthCheck, 30000);
 
     app.get('/', async (req, res) => {
 
@@ -54,8 +60,8 @@ async function assignServer(servers, res) {
         return server;
     }
     else {
-        servers.updateServerLiveStatus(server);
-        assignServer(servers, res);
+        servers.updateServerLiveStatus(server, false);
+        return await assignServer(servers, res);
     }
 
 }

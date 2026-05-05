@@ -30,7 +30,7 @@ export async function forwardToServer(req, res, server) {
 export async function checkServerIsAlive(server) {
     try {
         // Using fetch for health check because it is simple
-        const response = await fetch(`http://localhost:${server.port}/`, { 
+        const response = await fetch(`http://localhost:${server.port}/status`, { 
             signal: AbortSignal.timeout(2000) 
         });
         return response.ok;
