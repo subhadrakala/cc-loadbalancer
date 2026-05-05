@@ -1,5 +1,13 @@
 import http from "http";
 
+
+const keepAliveAgent = new http.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 1000, // keep the connection for 1 second of inactivity
+    maxSockets: 100,      // maximum concurrent connections to a single server
+});
+
+
 export async function forwardToServer(req, res, server) {
 
     /* using http connect because it is better
@@ -10,7 +18,8 @@ export async function forwardToServer(req, res, server) {
         port: server.port,
         path: req.url,
         method: req.method,
-        headers: req.headers
+        headers: req.headers,
+        agent: keepAliveAgent
     };
 
     const new_req = http.request(options, (new_res) => {

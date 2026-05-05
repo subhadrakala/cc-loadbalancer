@@ -1,6 +1,6 @@
 import express from "express";
 
-import logRequestInfo from "./log.js";
+import { logRequestInfo, logServerForwarding }from "./log.js";
 import Servers from "./servers.js";
 import { forwardToServer, checkServerIsAlive } from "./connect.js";
 
@@ -30,6 +30,7 @@ async function main() {
             logRequestInfo(req);
             let server = await assignServer(servers, res);
             if (server) {
+                logServerForwarding(req, server);
                 forwardToServer(req, res, server);
             }
         }
@@ -53,7 +54,8 @@ async function assignServer(servers, res) {
     }
     else {
         res.status(404);
-        res.message('Servers are not available');
+        console.log("All servers are dead")
+        res.json({ message: "No serves found" });
         return;
     }
     if (isAlive) {
