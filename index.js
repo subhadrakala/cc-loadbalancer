@@ -1,48 +1,64 @@
 import express from "express";
-import http from "http";
 
-const app = express();
-app.use(express.json());
+import logRequestInfo from "./log.js";
+import Servers from "./servers.js";
+import { forwardToServer, checkServerIsAlive } from "./connect.js";
 
-const port = 3000;
+async function main() {
+    const app = express();
+    app.use(express.json());
 
-app.get('/', (req, res) => {
+    const port = 3000;
 
-    try {
-        console.log(`Received request from ${req.ip}`);
-        console.log(`${req.method} ${req.url} HTTP/${req.httpVersion}`);
-        console.log(`Host: ${req.get('host')}`);
-        console.log(`User-Agent: ${req.get('user-agent')}`);
-        console.log(`Accept: ${req.get('accept')}`);
+    let servers = new Servers();
 
-        const options = {
-            host: 'localhost',
-            port: 8080,
-            path: req.url,
-            method: req.method,
-            headers: req.headers
-        };
-
-        const proxy_req = http.request(options, (proxy_res) => {
-            res.writeHead(proxy_res.statusCode, proxy_res.headers);
-            proxy_res.pipe(res, { end: true });
-        });
-
-        proxy_req.on('error', (e) => {
-            console.error(`Problem with request: ${e.message}`);
-            res.status(500).send('Server Error');
-        });
-
-        proxy_req.end();
+    for (const element of servers.getServers()) {
+        let status = await checkServerIsAlive(element);
+        servers.updateServerLiveStatus(element, status);
     }
-    catch(error) {
-        console.log(error)
+
+    app.get('/', async (req, res) => {
+
+        try {
+
+            logRequestInfo(req);
+            let server = await assignServer(servers, res);
+            if (server) {
+                forwardToServer(req, res, server);
+            }
+        }
+        catch (error) {
+            console.log(error)
+        }
+    })
+
+
+    app.listen(port, () => {
+        console.log(`Example app listening on port ${port}`)
+    });
+}
+
+async function assignServer(servers, res) {
+
+    const server = await servers.findOneServer();
+    let isAlive;
+    if (server) {
+        isAlive = await checkServerIsAlive(server);
     }
-})
+    else {
+        res.status(404);
+        res.message('Servers are not available');
+        return;
+    }
+    if (isAlive) {
+        return server;
+    }
+    else {
+        servers.updateServerLiveStatus(server);
+        assignServer(servers, res);
+    }
+
+}
 
 
-app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
-});
-
-export default app;
+main()
