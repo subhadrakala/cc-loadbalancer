@@ -3,12 +3,15 @@ import http from "http";
 
 const keepAliveAgent = new http.Agent({
     keepAlive: true,
-    keepAliveMsecs: 1000, // keep the connection for 1 second of inactivity
-    maxSockets: 100,      // maximum concurrent connections to a single server
+    keepAliveMsecs: 1000, 
+    maxSockets: 100,      
 });
 
 
 export async function forwardToServer(req, res, server) {
+
+    const headers = { ...req.headers };
+    headers.host = `localhost:${server.port}`;
 
     /* using http connect because it is better
     at piping the request to the server without
@@ -18,7 +21,7 @@ export async function forwardToServer(req, res, server) {
         port: server.port,
         path: req.url,
         method: req.method,
-        headers: req.headers,
+        headers: headers,
         agent: keepAliveAgent
     };
 
@@ -32,7 +35,8 @@ export async function forwardToServer(req, res, server) {
             res.status(500).send('Server Error');
     });
 
-    new_req.end();
+    req.pipe(new_req, { end: true }); 
+
 }
 
 

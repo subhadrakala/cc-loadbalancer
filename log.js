@@ -12,9 +12,8 @@ function logServerForwarding(req, server) {
     console.log(`Forwarding request from ${req.ip} to ${server.name}`);
 }
 
+export { logRequestInfo, logServerForwarding };
 
-
-export default logRequestInfo;
 
 
 

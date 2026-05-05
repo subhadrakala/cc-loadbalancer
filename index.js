@@ -6,28 +6,30 @@ import { forwardToServer, checkServerIsAlive } from "./connect.js";
 
 async function main() {
     const app = express();
-    app.use(express.json());
 
     const port = 3000;
 
     let servers = new Servers();
 
     const performHealthCheck = async () => {
-        for (const element of servers.getServers()) {
-            let status = await checkServerIsAlive(element);
-            servers.updateServerLiveStatus(element, status);
-        }
+        await Promise.all(
+            servers.getServers().map(async (element) => {
+                let status = await checkServerIsAlive(element);
+                servers.updateServerLiveStatus(element, status);
+            })
+        )
     };
 
     await performHealthCheck();
 
     setInterval(performHealthCheck, 30000);
 
-    app.get('/', async (req, res) => {
+    app.use('/', async (req, res) => {
 
         try {
 
             logRequestInfo(req);
+
             let server = await assignServer(servers, res);
             if (server) {
                 logServerForwarding(req, server);
@@ -46,27 +48,25 @@ async function main() {
 }
 
 async function assignServer(servers, res) {
+    while (true) {
+        const server = await servers.findOneServer();
 
-    const server = await servers.findOneServer();
-    let isAlive;
-    if (server) {
-        isAlive = await checkServerIsAlive(server);
+        // No more servers available at all
+        if (!server) {
+            console.log("All servers are dead");
+            res.status(404).json({ message: "No servers found" });
+            return null;
+        }
+        const isAlive = await checkServerIsAlive(server);
+        if (isAlive) {
+            return server;
+        } else {
+            servers.updateServerLiveStatus(server, false);
+            console.log(`Server ${server.name} found dead during forwarding, retrying...`);
+        }
     }
-    else {
-        res.status(404);
-        console.log("All servers are dead")
-        res.json({ message: "No serves found" });
-        return;
-    }
-    if (isAlive) {
-        return server;
-    }
-    else {
-        servers.updateServerLiveStatus(server, false);
-        return await assignServer(servers, res);
-    }
-
 }
+
 
 
 main()
